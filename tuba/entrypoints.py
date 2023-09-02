@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 
 from tuba.repos import GoogleYoutubeRepo, OnDiskSubscriptionRepo
-from tuba.services import initialise_channel
+from tuba.services import add_channel, update_channel
 
 
 def main(repo_path: str):
@@ -15,4 +15,5 @@ def main(repo_path: str):
     # "https://www.youtube.com/watch?v=A-X1PhR1D5Y"
     channel_url = "https://www.youtube.com/channel/UC7Ay_bxnYWSS9ZDPpqAE1RQ/videos"
     logging.info(f"Adding channel {channel_url}")
-    initialise_channel(channel_url, youtube_repo, subscription_repo)
+    channel_id = add_channel(channel_url, youtube_repo, subscription_repo)
+    update_channel(channel_id, youtube_repo, subscription_repo)

@@ -16,5 +16,6 @@ class Video:
 @dataclass(frozen=True, eq=True)
 class Channel:
     name: str
+    url: str
     id_: ChannelID
     known_videos: set[Video]
