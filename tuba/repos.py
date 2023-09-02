@@ -1,13 +1,16 @@
 """Repositories available to tuba"""
 import json
+import pickle as pkl
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from pathlib import Path
 
-from tuba.domain import Channel, Video, VideoID
+from yt_dlp import YoutubeDL
+
+from tuba.domain import Channel, ChannelID, Video, VideoID
 
 
-class YoutubeRepo(ABC):
+class SubscriptionRepo(ABC):
     @abstractmethod
     def add_new_channel(self, channel: Channel):
         pass
@@ -17,7 +20,13 @@ class YoutubeRepo(ABC):
         pass
 
 
-class OnDiskYoutubeRepo(YoutubeRepo):
+class YoutubeRepo(ABC):
+    @abstractmethod
+    def get_channel(self, channel_url: str):
+        pass
+
+
+class OnDiskSubscriptionRepo(SubscriptionRepo):
     _CHANNEL_PATH = "channel"
     _VIDEO_PATH = "video"
     _SEEN_VIDEOS_FILE = "seen.json"
@@ -54,3 +63,31 @@ class OnDiskYoutubeRepo(YoutubeRepo):
             str(self._base_path / self._VIDEO_PATH / video.id_) + ".json", "w"
         ) as f:
             json.dump(asdict(video), f)
+
+
+class GoogleYoutubeRepo(YoutubeRepo):
+    def get_channel(self, channel_url: str) -> Channel:
+        if False:
+            with YoutubeDL({"skip_download": True}) as ydl:
+                report = ydl.extract_info(channel_url)
+
+            with open("/tmp/res.pkl", "wb") as f:
+                pkl.dump(report, f)
+
+        with open("/tmp/res.pkl", "rb") as f:
+            report = pkl.load(f)
+
+        return Channel(
+            name=report["channel"],
+            id_=ChannelID(report["channel_id"]),
+            known_videos=set(
+                [
+                    Video(
+                        url=video_report["webpage_url"],
+                        id_=VideoID(video_report["id"]),
+                        channel_id=report["channel_id"],
+                    )
+                    for video_report in report["entries"]
+                ]
+            ),
+        )
