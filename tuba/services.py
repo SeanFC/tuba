@@ -20,3 +20,8 @@ def update_channel(
     channel = subscription_repo.get_channel(id_)
     videos = youtube_repo.get_channel_videos(channel)
     subscription_repo.add_videos_to_channel(channel, videos)
+
+
+def set_channel_as_seen(id_: ChannelID, subscription_repo: SubscriptionRepo):
+    channel = subscription_repo.get_channel(id_)
+    subscription_repo.update_seen_videos([video.id_ for video in channel.known_videos])

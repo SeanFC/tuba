@@ -1,4 +1,4 @@
-"""Data stores"""
+"""Adapaters to data stored in some fashion to domain objects"""
 import json
 import pickle as pkl
 from abc import ABC, abstractmethod
@@ -17,7 +17,7 @@ class SubscriptionRepo(ABC):
         pass
 
     @abstractmethod
-    def update_seen_video(self, video_id: VideoID):
+    def update_seen_videos(self, video_ids: Iterable[VideoID]):
         pass
 
     @abstractmethod
@@ -26,6 +26,10 @@ class SubscriptionRepo(ABC):
 
     @abstractmethod
     def get_channel(self, id_: ChannelID) -> Channel:
+        pass
+
+    @abstractmethod
+    def get_all_channels(self) -> Iterable[ChannelID]:
         pass
 
 
@@ -49,6 +53,11 @@ class OnDiskSubscriptionRepo(SubscriptionRepo):
         (self._base_path / self._CHANNEL_PATH).mkdir(exist_ok=True)
         (self._base_path / self._VIDEO_PATH).mkdir(exist_ok=True)
 
+        seen_videos_file_path = self._base_path / self._SEEN_VIDEOS_FILE
+        if not seen_videos_file_path.exists():
+            with open(seen_videos_file_path, "w") as f:
+                json.dump({"seen": []}, f)
+
     def add_new_channel(self, channel: Channel):
         for video in channel.known_videos:
             self._add_video(video)
@@ -63,13 +72,14 @@ class OnDiskSubscriptionRepo(SubscriptionRepo):
         ) as f:
             json.dump(channel_dict, f)
 
-    def update_seen_video(self, video_id: VideoID):
+    def update_seen_videos(self, video_ids: Iterable[VideoID]):
         with open(self._base_path / self._SEEN_VIDEOS_FILE, "r") as f:
             current_seen = json.load(f)
-        current_seen["seen"].append(video_id)
 
+        current_seen["seen"].extend(list(video_ids))
+        current_seen["seen"] = list(set(current_seen["seen"]))
         with open(self._base_path / self._SEEN_VIDEOS_FILE, "w") as f:
-            json.dump(f, current_seen)
+            json.dump(current_seen, f)
 
     def _add_video(self, video: Video):
         with open(
@@ -96,7 +106,6 @@ class OnDiskSubscriptionRepo(SubscriptionRepo):
         ) as f:
             channel_dict = json.load(f)
 
-        print(channel_dict)
         for video in videos:
             channel_dict["known_videos"] = list(
                 set(channel_dict["known_videos"] + [video.id_])
@@ -121,6 +130,21 @@ class OnDiskSubscriptionRepo(SubscriptionRepo):
             **channel_dict,
             known_videos=[self._get_video(video_id) for video_id in video_ids]
         )
+
+    def get_all_channels(self) -> Iterator[ChannelID]:
+        return [
+            ChannelID(path.stem)
+            for path in (self._base_path / self._CHANNEL_PATH).iterdir()
+        ]
+
+    def get_unseen_videos(self) -> Iterator[Video]:
+        with open(self._base_path / self._SEEN_VIDEOS_FILE, "r") as f:
+            current_seen = json.load(f)
+
+        for video_path in (self._base_path / self._VIDEO_PATH).iterdir():
+            video_id = video_path.stem
+            if video_id not in current_seen["seen"]:
+                yield self._get_video(video_id)
 
 
 class GoogleYoutubeRepo(YoutubeRepo):
@@ -156,7 +180,8 @@ class GoogleYoutubeRepo(YoutubeRepo):
         ]
 
     def _ask_google_for_channel(self, url) -> dict:
-        if False:
+        #TODO: Delete all this pickling
+        if True:
             with YoutubeDL({"skip_download": True}) as ydl:
                 report = ydl.extract_info(url)
 

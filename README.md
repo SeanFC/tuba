@@ -21,3 +21,7 @@ Linting is done with
 ```
 autoflake . && isort . && black .
 ```
+
+## TODO
+* Docs
+* Tests
