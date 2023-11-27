@@ -10,10 +10,33 @@ def main(repo_path: str):
     youtube_repo = GoogleYoutubeRepo()
     subscription_repo = OnDiskSubscriptionRepo(Path(repo_path))
 
+    from bs4 import BeautifulSoup
+
+    with open("/home/sean/bookmarks.html") as f:
+        data = f.read()
+
+    soup = BeautifulSoup(data, "html.parser")
+    channel_links = []
+    for h3 in soup.find_all("h3"):
+        if not h3.text == "Channels":
+            continue
+        idx = 0
+        for sib in h3.next_siblings:
+            idx += 1
+
+            if idx == 2:
+                break
+        for cur_a in sib.find_all("a"):
+            channel_links.append(cur_a["href"])
+        break
+    print(channel_links)
+
     # "https://www.youtube.com/@BPSspace/videos",
     # "https://www.youtube.com/@built-from-scratch/videos"
     # "https://www.youtube.com/watch?v=A-X1PhR1D5Y"
-    channel_url = "https://www.youtube.com/channel/UC7Ay_bxnYWSS9ZDPpqAE1RQ/videos"
+    # channel_url = "https://www.youtube.com/channel/UC7Ay_bxnYWSS9ZDPpqAE1RQ/videos"
+
+    channel_url = list(channel_links)[4]
     logging.info(f"Adding channel {channel_url}")
     channel_id = add_channel(channel_url, youtube_repo, subscription_repo)
 

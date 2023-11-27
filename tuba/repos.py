@@ -35,7 +35,7 @@ class SubscriptionRepo(ABC):
 
 class YoutubeRepo(ABC):
     @abstractmethod
-    def get_channel_from_url(self, channel_url: str):
+    def get_channel_from_url(self, channel_url: str) -> Channel:
         pass
 
     @abstractmethod
@@ -63,13 +63,9 @@ class OnDiskSubscriptionRepo(SubscriptionRepo):
             self._add_video(video)
 
         channel_dict = asdict(channel)
-        channel_dict["known_videos"] = [
-            video.id_ for video in channel_dict["known_videos"]
-        ]
+        channel_dict["known_videos"] = [video.id_ for video in channel_dict["known_videos"]]
 
-        with open(
-            str(self._base_path / self._CHANNEL_PATH / channel.id_) + ".json", "w"
-        ) as f:
+        with open(str(self._base_path / self._CHANNEL_PATH / channel.id_) + ".json", "w") as f:
             json.dump(channel_dict, f)
 
     def update_seen_videos(self, video_ids: Iterable[VideoID]):
@@ -82,9 +78,7 @@ class OnDiskSubscriptionRepo(SubscriptionRepo):
             json.dump(current_seen, f)
 
     def _add_video(self, video: Video):
-        with open(
-            str(self._base_path / self._VIDEO_PATH / video.id_) + ".json", "w"
-        ) as f:
+        with open(str(self._base_path / self._VIDEO_PATH / video.id_) + ".json", "w") as f:
             json.dump(asdict(video), f)
 
     def _get_video(self, id_: VideoID) -> Video:
@@ -94,31 +88,21 @@ class OnDiskSubscriptionRepo(SubscriptionRepo):
         return Video(**video_dict)
 
     def _known_video(self, video: Video) -> bool:
-        return (
-            (self._base_path / self._VIDEO_PATH / video.id_)
-            .with_suffix(".json")
-            .exists()
-        )
+        return (self._base_path / self._VIDEO_PATH / video.id_).with_suffix(".json").exists()
 
     def add_videos_to_channel(self, channel: Channel, videos: Iterable[Video]):
-        with open(
-            str(self._base_path / self._CHANNEL_PATH / channel.id_) + ".json", "r"
-        ) as f:
+        with open(str(self._base_path / self._CHANNEL_PATH / channel.id_) + ".json", "r") as f:
             channel_dict = json.load(f)
 
         for video in videos:
-            channel_dict["known_videos"] = list(
-                set(channel_dict["known_videos"] + [video.id_])
-            )
+            channel_dict["known_videos"] = list(set(channel_dict["known_videos"] + [video.id_]))
 
             if self._known_video(video):
                 continue
 
             self._add_video(video)
 
-        with open(
-            str(self._base_path / self._CHANNEL_PATH / channel.id_) + ".json", "w"
-        ) as f:
+        with open(str(self._base_path / self._CHANNEL_PATH / channel.id_) + ".json", "w") as f:
             json.dump(channel_dict, f)
 
     def get_channel(self, id_: ChannelID) -> Channel:
@@ -127,15 +111,12 @@ class OnDiskSubscriptionRepo(SubscriptionRepo):
 
         video_ids = channel_dict.pop("known_videos")
         return Channel(
-            **channel_dict,
-            known_videos=[self._get_video(video_id) for video_id in video_ids]
+            **channel_dict, known_videos=set([self._get_video(video_id) for video_id in video_ids])
         )
 
     def get_all_channels(self) -> Iterator[ChannelID]:
-        return [
-            ChannelID(path.stem)
-            for path in (self._base_path / self._CHANNEL_PATH).iterdir()
-        ]
+        for path in (self._base_path / self._CHANNEL_PATH).iterdir():
+            yield ChannelID(path.stem)
 
     def get_unseen_videos(self) -> Iterator[Video]:
         with open(self._base_path / self._SEEN_VIDEOS_FILE, "r") as f:
@@ -170,19 +151,23 @@ class GoogleYoutubeRepo(YoutubeRepo):
     def get_channel_videos(self, channel: Channel) -> Iterator[Video]:
         report = self._ask_google_for_channel(channel.url)
 
-        return [
-            Video(
+        for video_report in report["entries"]:
+            yield Video(
                 url=video_report["webpage_url"],
                 id_=VideoID(video_report["id"]),
                 channel_id=report["channel_id"],
             )
-            for video_report in report["entries"]
-        ]
+
+    # TODO; Maybe do some better logging than this. It can also take forever so log some updates
+    class Logger:
+        debug = lambda self, x: x
+        warning = lambda self, x: x
+        error = lambda self, x: x
 
     def _ask_google_for_channel(self, url) -> dict:
-        #TODO: Delete all this pickling
+        # TODO: Delete all this pickling
         if True:
-            with YoutubeDL({"skip_download": True}) as ydl:
+            with YoutubeDL(dict(skip_download=True, logger=self.Logger())) as ydl:
                 report = ydl.extract_info(url)
 
             with open("/tmp/res.pkl", "wb") as f:
