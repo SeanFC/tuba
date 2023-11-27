@@ -31,7 +31,7 @@ def update_channel(id_: ChannelID, uow: UnitOfWork):
     with uow:
         channel = uow.subscription.get_channel(id_)
         videos = uow.youtube.get_channel_videos(channel)
-        uow.subscriptiono.add_videos_to_channel(channel, videos)
+        uow.subscription.add_videos_to_channel(channel, videos)
 
 
 def set_channel_as_seen(id_: ChannelID, uow: UnitOfWork):
