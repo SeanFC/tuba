@@ -281,7 +281,7 @@ class GoogleYoutubeRepo(YoutubeRepo):
         return report
 
 
-class OnDiskBookmarkRepo:
+class OnDiskBookmarkRepo(BookmarkRepo):
     """Access bookmark information on disk"""
 
     def __init__(self, bookmark_path: Path):
@@ -297,15 +297,22 @@ class OnDiskBookmarkRepo:
         with open(Path(self._bookmark_path)) as f:
             data = f.read()
 
+        # TODO: Not really sure how this works
         for h3 in BeautifulSoup(data, "html.parser").find_all("h3"):
             if not h3.text == "Channels":
                 continue
+
             idx = 0
+            sib = None
             for sib in h3.next_siblings:
                 idx += 1
 
                 if idx == 2:
                     break
+
+            if sib is None:
+                continue
+
             for cur_a in sib.find_all("a"):
                 yield cur_a["href"]
             break
